@@ -50,7 +50,7 @@ The **SIGINT Triangulation System** is a web-based application designed to simul
    - Bearing: Direction in degrees (0–360°).
 3. **Triangulate Position**: Click "Triangulate Position" to calculate the target location.
 4. **View Results**: See the triangulated coordinates and confidence level on the map and in the results section.
-5. **Export Data**: Use "Export Map" to save the map as an image, or "Copy Report" to copy the report (Meldung, Stao, Zeit, Sign, Freq, AZ) to the clipboard.
+5. **Export Data**: Use "Copy Map" to copy the map as an image, and "Copy Report" to copy the report text (Meldung, Stao, Zeit, Sign, Freq, AZ).
 
 ## How It Works
 

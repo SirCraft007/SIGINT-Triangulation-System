@@ -21,7 +21,8 @@ function cartoUrl() {
 // Initialize Leaflet map with dark theme
 const darkMap = L.tileLayer(cartoUrl(), {
     attribution: '©OpenStreetMap, ©CartoDB',
-    maxZoom: 19
+    maxZoom: 19,
+    crossOrigin: true // lets the loaded tiles be drawn onto the image export canvas
 });
 
 // Initialize map centered on Bucharest, Romania
@@ -39,7 +40,8 @@ function swisstopoLayer(layerId, maxNativeZoom) {
     return L.tileLayer(`https://wmts.geo.admin.ch/1.0.0/${layerId}/default/current/3857/{z}/{x}/{y}.jpeg`, {
         attribution: '©swisstopo',
         maxNativeZoom,
-        maxZoom: 19
+        maxZoom: 19,
+        crossOrigin: true
     });
 }
 
@@ -186,11 +188,9 @@ function processData() {
             return d;
         });
 
-        setTimeout(() => {
-            calculateIntersection(data);
-            loadingSpinner.style.display = 'none';
-            document.getElementById('confidence-level').style.display = 'block';
-        }, 500);
+        calculateIntersection(data);
+        loadingSpinner.style.display = 'none';
+        document.getElementById('confidence-level').style.display = 'block';
     } catch (error) {
         alert(error.message);
         loadingSpinner.style.display = 'none';
@@ -563,130 +563,136 @@ function resetData() {
     addRow();
 }
 
-// Function to export map as image
-async function exportMapImage() {
-    const loadingSpinner = document.getElementById('process-loading');
-    // leaflet-image can't render HTML markers, so they are lifted off the map during
-    // the export and drawn onto the canvas afterwards
-    const hidden = [];
-    try {
-        loadingSpinner.style.display = 'inline-block';
-
-        const lines = [];
-        const overlays = [];
-
-        map.eachLayer(layer => {
-            if (layer instanceof L.Marker && layer.getIcon() instanceof L.DivIcon) {
-                overlays.push({ ...layer.options.exportAs, position: layer.getLatLng() });
-                const parent = [vectorLayer, resultsLayer, poiLayer, measureLayer].find(g => g.hasLayer(layer)) || map;
-                hidden.push({ parent, layer });
-            } else if (layer instanceof L.Polyline) {
-                const polygon = layer instanceof L.Polygon;
-                lines.push({
-                    latlngs: polygon ? layer.getLatLngs()[0] : layer.getLatLngs(),
-                    polygon,
-                    color: layer.options.color,
-                    weight: layer.options.weight,
-                    opacity: layer.options.opacity,
-                    fillColor: layer.options.fillColor || layer.options.color,
-                    fillOpacity: layer.options.fillOpacity,
-                    dash: layer.options.dashArray ? layer.options.dashArray.split(' ').map(Number) : []
-                });
-            }
-        });
-        hidden.forEach(({ parent, layer }) => parent.removeLayer(layer));
-
-        // Wait for all tiles to load
-        await new Promise(resolve => {
-            let tilesLoading = false;
-            map.eachLayer(layer => {
-                if (layer instanceof L.TileLayer) {
-                    if (!layer.isLoading()) {
-                        resolve();
-                    } else {
-                        tilesLoading = true;
-                        layer.once('load', resolve);
-                    }
-                }
-            });
-            if (!tilesLoading) {
-                resolve();
-            }
-        });
-
-        // Use leafletImage with error handling and timeout
-        await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error('Map export timed out'));
-            }, 10000); // 10 second timeout
-
-            leafletImage(map, function(err, canvas) {
-                clearTimeout(timeout);
-
-                if (err) {
-                    reject(err);
-                    return;
-                }
-
-                const ctx = canvas.getContext('2d');
-
-                // Redraw the lines and wedges on the canvas, wedges underneath
-                lines.sort((a, b) => b.polygon - a.polygon).forEach(line => {
-                    const points = line.latlngs.map(latlng => map.latLngToContainerPoint(latlng));
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.moveTo(points[0].x, points[0].y);
-                    points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
-                    if (line.polygon) {
-                        ctx.closePath();
-                        ctx.fillStyle = line.fillColor;
-                        ctx.globalAlpha = line.fillOpacity;
-                        ctx.fill();
-                    }
-                    ctx.setLineDash(line.dash);
-                    ctx.strokeStyle = line.color;
-                    ctx.lineWidth = line.weight;
-                    ctx.globalAlpha = line.opacity;
-                    ctx.lineCap = 'round';
-                    ctx.stroke();
-                    ctx.restore();
-                });
-
-                // Markers outside the exported frame are skipped, labels included
-                const inFrame = ({ x, y }) => x >= 0 && y >= 0 && x <= canvas.width && y <= canvas.height;
-                const order = { poi: 0, rx: 1, target: 2 }; // target on top
-                overlays
-                    .filter(o => o.kind in order)
-                    .sort((a, b) => order[a.kind] - order[b.kind])
-                    .forEach(o => {
-                        const p = map.latLngToContainerPoint(o.position);
-                        if (!inFrame(p)) return;
-                        if (o.kind === 'rx') drawRxOnCanvas(ctx, p, o.name, o.color);
-                        else if (o.kind === 'poi') drawPoiOnCanvas(ctx, p, o.name);
-                        else drawTargetOnCanvas(ctx, p);
-                    });
-
-                // Convert canvas to blob and download
-                canvas.toBlob(function(blob) {
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.download = `triangulation-map-${new Date().toISOString().slice(0,10)}.png`;
-                    link.href = url;
-                    link.click();
-
-                    // Cleanup
-                    URL.revokeObjectURL(url);
-                    resolve();
-                }, 'image/png');
-            });
-        });
-    } catch (error) {
-        console.error('Error exporting map:', error);
-        alert('Failed to export map image. Please try again.');
-    } finally {
-        hidden.forEach(({ parent, layer }) => parent.addLayer(layer));
-        loadingSpinner.style.display = 'none';
+// Render the map with its lines and markers onto a canvas. The tiles already on screen
+// are drawn directly (they are loaded with CORS), so nothing is downloaded again.
+async function renderMapCanvas() {
+    // Give tiles that are still loading a moment, then draw whatever is there
+    const loading = [];
+    map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer && layer.isLoading()) {
+            loading.push(new Promise(resolve => layer.once('load', resolve)));
+        }
+    });
+    if (loading.length) {
+        await Promise.race([Promise.all(loading), new Promise(resolve => setTimeout(resolve, 3000))]);
     }
+
+    const size = map.getSize();
+    const scale = window.devicePixelRatio || 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(size.x * scale);
+    canvas.height = Math.round(size.y * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.fillStyle = '#dddddd';
+    ctx.fillRect(0, 0, size.x, size.y);
+
+    // Tiles, lower zoom levels first (Leaflet keeps the current level on top via z-index)
+    const mapRect = map.getContainer().getBoundingClientRect();
+    map.eachLayer(layer => {
+        if (!(layer instanceof L.TileLayer)) return;
+        Array.from(layer.getContainer().querySelectorAll('img.leaflet-tile-loaded'))
+            .sort((a, b) => (parseInt(a.parentNode.style.zIndex) || 0) - (parseInt(b.parentNode.style.zIndex) || 0))
+            .forEach(img => {
+                const r = img.getBoundingClientRect();
+                ctx.drawImage(img, r.left - mapRect.left, r.top - mapRect.top, r.width, r.height);
+            });
+    });
+
+    const lines = [];
+    const overlays = [];
+    map.eachLayer(layer => {
+        if (layer instanceof L.Marker && layer.options.exportAs) {
+            overlays.push({ ...layer.options.exportAs, position: layer.getLatLng() });
+        } else if (layer instanceof L.Polyline) {
+            const polygon = layer instanceof L.Polygon;
+            lines.push({
+                latlngs: polygon ? layer.getLatLngs()[0] : layer.getLatLngs(),
+                polygon,
+                color: layer.options.color,
+                weight: layer.options.weight,
+                opacity: layer.options.opacity,
+                fillColor: layer.options.fillColor || layer.options.color,
+                fillOpacity: layer.options.fillOpacity,
+                dash: layer.options.dashArray ? layer.options.dashArray.split(' ').map(Number) : []
+            });
+        }
+    });
+
+    // Lines and wedges, wedges underneath
+    lines.sort((a, b) => b.polygon - a.polygon).forEach(line => {
+        const points = line.latlngs.map(latlng => map.latLngToContainerPoint(latlng));
+        if (!points.length) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+        if (line.polygon) {
+            ctx.closePath();
+            ctx.fillStyle = line.fillColor;
+            ctx.globalAlpha = line.fillOpacity;
+            ctx.fill();
+        }
+        ctx.setLineDash(line.dash);
+        ctx.strokeStyle = line.color;
+        ctx.lineWidth = line.weight;
+        ctx.globalAlpha = line.opacity;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.restore();
+    });
+
+    // Markers outside the exported frame are skipped, labels included
+    const inFrame = ({ x, y }) => x >= 0 && y >= 0 && x <= size.x && y <= size.y;
+    const order = { poi: 0, rx: 1, target: 2 }; // target on top
+    overlays
+        .filter(o => o.kind in order)
+        .sort((a, b) => order[a.kind] - order[b.kind])
+        .forEach(o => {
+            const p = map.latLngToContainerPoint(o.position);
+            if (!inFrame(p)) return;
+            if (o.kind === 'rx') drawRxOnCanvas(ctx, p, o.name, o.color);
+            else if (o.kind === 'poi') drawPoiOnCanvas(ctx, p, o.name);
+            else drawTargetOnCanvas(ctx, p);
+        });
+
+    return canvas;
+}
+
+function canvasToPng(canvas) {
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+}
+
+// Copy the map as an image; falls back to downloading it if the clipboard is blocked
+async function copyMapImage() {
+    const button = document.getElementById('copy-map');
+    const png = renderMapCanvas().then(canvasToPng);
+    try {
+        // The item is created right away with a promise to keep the click's clipboard permission
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+        flashButton(button, ' Copied! ');
+    } catch (error) {
+        console.warn('Could not copy map, downloading instead:', error);
+        try {
+            const url = URL.createObjectURL(await png);
+            const link = document.createElement('a');
+            link.download = `triangulation-map-${new Date().toISOString().slice(0,10)}.png`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (renderError) {
+            console.error('Error rendering map:', renderError);
+            alert('Failed to render the map image. Please try again.');
+        }
+    }
+}
+
+// Show a short confirmation on a button, then restore its label
+function flashButton(button, text) {
+    button.dataset.label ??= button.textContent;
+    clearTimeout(button.flashTimer);
+    button.textContent = text;
+    button.flashTimer = setTimeout(() => { button.textContent = button.dataset.label; }, 1500);
 }
 
 // Draws an SVG-style icon (see RX_ICON / TARGET_ICON) with its anchor at p
@@ -782,14 +788,17 @@ async function copyReport() {
         sources.forEach(s => {
             txtContent += `AZ ${s.name}: ${s.bearing ? `${s.bearing}°` : ''}\n`;
         });
+        txtContent += `Pos: ${targetLocation ? formatCoords(targetLocation) : '—'}\n`;
         txtContent += `Interp:`;
+    } catch (error) {
+        console.error('Error building report:', error);
+        alert('Failed to build the report. Please try again.');
+        return;
+    }
 
-
+    try {
         await navigator.clipboard.writeText(txtContent);
-
-        const button = document.getElementById('copy-report');
-        button.textContent = ' Copied! ';
-        setTimeout(() => { button.textContent = ' Copy Report '; }, 1500);
+        flashButton(document.getElementById('copy-report'), ' Copied! ');
     } catch (error) {
         // Clipboard access can be blocked (e.g. over file://), so let the user copy it by hand
         console.error('Error copying report:', error);
@@ -1247,7 +1256,7 @@ document.getElementById('report-freq').addEventListener('input', saveState);
 map.on('moveend', saveState);
 document.getElementById('process-data').addEventListener('click', processData);
 document.getElementById('reset-data').addEventListener('click', resetData);
-document.getElementById('export-image').addEventListener('click', exportMapImage);
+document.getElementById('copy-map').addEventListener('click', copyMapImage);
 document.getElementById('copy-report').addEventListener('click', copyReport);
 document.getElementById('export-preset').addEventListener('click', exportPreset);
 document.getElementById('import-preset').addEventListener('click', () => document.getElementById('preset-file').click());
