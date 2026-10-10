@@ -1,7 +1,25 @@
 let rowCount = 0;
 
+// API key is entered in the app and kept in localStorage
+const API_KEY_STORAGE_KEY = 'sigint-triangulation-api-key';
+
+function loadApiKey() {
+    try {
+        return localStorage.getItem(API_KEY_STORAGE_KEY) || '';
+    } catch (error) {
+        console.warn('Could not load API key:', error);
+        return '';
+    }
+}
+
+let key = loadApiKey();
+
+function cartoUrl() {
+    return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' + (key ? '?key=' + encodeURIComponent(key) : '');
+}
+
 // Initialize Leaflet map with dark theme
-const darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' + (key ? '?key=' + encodeURIComponent(key) : ''), {
+const darkMap = L.tileLayer(cartoUrl(), {
     attribution: '©OpenStreetMap, ©CartoDB',
     maxZoom: 19
 });
@@ -1138,7 +1156,23 @@ function loadState() {
     return true;
 }
 
+// Ask for the map API key once and remember it; an empty entry removes it
+function promptApiKey() {
+    const entered = prompt('Map API key (leave empty to remove):', key);
+    if (entered === null) return;
+
+    key = entered.trim();
+    try {
+        if (key) localStorage.setItem(API_KEY_STORAGE_KEY, key);
+        else localStorage.removeItem(API_KEY_STORAGE_KEY);
+    } catch (error) {
+        console.warn('Could not save API key:', error);
+    }
+    darkMap.setUrl(cartoUrl());
+}
+
 // Add event listeners
+document.getElementById('set-api-key').addEventListener('click', promptApiKey);
 document.getElementById('add-row').addEventListener('click', () => addRow());
 document.getElementById('input-rows').addEventListener('input', () => {
     drawVectors();
