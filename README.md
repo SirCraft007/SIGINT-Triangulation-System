@@ -4,7 +4,7 @@
 
 ![SIGINT-Triangulation-System](https://github.com/user-attachments/assets/80d43a91-f3b3-45ea-bbae-3056fe2aeec8)
 
-The **SIGINT Triangulation System** is a web-based application designed to simulate and visualize signal triangulation using geospatial data. It enables users to input signal sources, bearings, frequencies, and signal strengths to calculate a target location using geodesic intersection methods.
+The **SIGINT Triangulation System** is a web-based application designed to simulate and visualize signal triangulation using geospatial data. It enables users to input signal sources and bearings to calculate a target location using geodesic intersection methods.
 
 </div>
 
@@ -48,11 +48,9 @@ The **SIGINT Triangulation System** is a web-based application designed to simul
 2. **Enter Parameters**:
    - Signal Source Location: Latitude and Longitude (e.g., `44.4268,26.1025`).
    - Bearing: Direction in degrees (0–360°).
-   - Frequency: Signal frequency in MHz.
-   - Signal Strength: Strength in dB.
 3. **Triangulate Position**: Click "Triangulate Position" to calculate the target location.
 4. **View Results**: See the triangulated coordinates and confidence level on the map and in the results section.
-5. **Export Data**: Use the "Export Map" or "Export Report" buttons to save outputs.
+5. **Export Data**: Use "Export Map" to save the map as an image, or "Copy Report" to copy the report (Meldung, Stao, Zeit, Sign, Freq, AZ) to the clipboard.
 
 ## How It Works
 

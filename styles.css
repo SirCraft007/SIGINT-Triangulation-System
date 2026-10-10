@@ -83,14 +83,14 @@ h2 {
 }
 
 button#export-image,
-button#export-txt {
+button#copy-report {
 	background: var(--bg-secondary);
 	border: 1px solid var(--border-color);
 	color: var(--text-primary);
 }
 
 button#export-image:hover,
-button#export-txt:hover {
+button#copy-report:hover {
 	background: var(--bg-tertiary);
 	border-color: var(--accent-primary);
 }
@@ -443,8 +443,21 @@ button.secondary {
 	margin: 0;
 }
 
+.report-fields {
+	display: flex;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+
+.report-fields input {
+	flex: 1;
+	width: auto;
+	margin: 0;
+}
+
 @media (max-width: 768px) {
-	.poi-form {
+	.poi-form,
+	.report-fields {
 		flex-direction: column;
 	}
 }

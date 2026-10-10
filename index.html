@@ -22,21 +22,24 @@
           <span class="loading" id="process-loading"></span> Triangulate Position </button>
         <button type="button" id="reset-data" class="secondary"> Clear Data </button>
         <button type="button" id="export-image" class="secondary"> Export Map </button>
-        <button type="button" id="export-txt" class="secondary"> Export Report </button>
+        <button type="button" id="copy-report" class="secondary"> Copy Report </button>
         <button type="button" id="export-preset" class="secondary"> Export Preset </button>
         <button type="button" id="import-preset" class="secondary"> Import Preset </button>
         <input type="file" id="preset-file" accept=".json,application/json" hidden>
         <button type="button" id="set-api-key" class="secondary"> API Key </button>
       </div>
       <form id="input-form">
+        <div class="report-fields">
+          <input type="text" id="report-time" placeholder="Zeit (default: now)">
+          <input type="text" id="report-sign" placeholder="Signal">
+          <input type="number" id="report-freq" step="0.001" placeholder="Freq (MHz)">
+        </div>
         <table>
           <thead>
             <tr>
               <th>Name</th>
               <th>Signal Source Location</th>
               <th>Bearing (° or range)</th>
-              <th>Frequency (MHz)</th>
-              <th>Signal Strength (dB)</th>
               <th>Actions</th>
             </tr>
           </thead>

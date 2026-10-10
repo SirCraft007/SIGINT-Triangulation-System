@@ -139,11 +139,9 @@ function addRow(values = {}) {
         <td><input type="text" name="name-${rowCount}" placeholder="RX ${rowCount} (optional)"></td>
         <td><input type="text" name="position-${rowCount}" placeholder="Lat,Lng" required></td>
         <td><input type="text" name="bearing-${rowCount}" inputmode="decimal" placeholder="45 or 40-55" required></td>
-        <td><input type="number" name="freq-${rowCount}" step="0.001" placeholder="MHz" required></td>
-        <td><input type="number" name="signal-${rowCount}" step="0.1" placeholder="dB" required></td>
         <td><button type="button" class="danger" onclick="removeRow(this)">Remove</button></td>
     `;
-    ['name', 'position', 'bearing', 'freq', 'signal'].forEach(field => {
+    ['name', 'position', 'bearing'].forEach(field => {
         if (values[field] !== undefined) rowField(row, field).value = values[field];
     });
     tableBody.appendChild(row);
@@ -151,7 +149,7 @@ function addRow(values = {}) {
     saveState();
 }
 
-// Get a row's input by field (name, position, bearing, freq, signal)
+// Get a row's input by field (name, position, bearing)
 function rowField(row, field) {
     return row.querySelector(`input[name^="${field}-"]`);
 }
@@ -203,9 +201,7 @@ function readRow(row) {
     return {
         name: rowField(row, 'name').value.trim(),
         position: parseCoords(rowField(row, 'position').value),
-        ...parseBearing(rowField(row, 'bearing').value),
-        frequency: parseFloat(rowField(row, 'freq').value),
-        signal: parseFloat(rowField(row, 'signal').value)
+        ...parseBearing(rowField(row, 'bearing').value)
     };
 }
 
@@ -288,8 +284,6 @@ function drawVectors() {
             .addTo(vectorLayer)
             .bindPopup(`
             <b>${escapeHtml(d.name || `Signal Source ${index + 1}`)}</b><br>
-            Frequency: ${isNaN(d.frequency) ? '—' : d.frequency + ' MHz'}<br>
-            Signal Strength: ${isNaN(d.signal) ? '—' : d.signal + ' dB'}<br>
             Bearing: ${hasBearing ? formatBearing(d) : '—'}
         `);
     });
@@ -554,6 +548,9 @@ function calculateDistance(point1, point2) {
 function resetData() {
     document.getElementById('input-rows').innerHTML = '';
     rowCount = 0;
+    document.getElementById('report-time').value = '';
+    document.getElementById('report-sign').value = '';
+    document.getElementById('report-freq').value = '';
 
     clearTarget();
 
@@ -760,63 +757,43 @@ function drawTargetOnCanvas(ctx, p) {
     drawLabelOnCanvas(ctx, 'TARGET', p.x, p.y - 32, '#ff3b3b', 'center');
 }
 
-// Function to export data as TXT
-function exportDataAsTxt() {
+// Current time as HH:MM, rounded to the nearest 10 minutes
+function currentTimeRounded() {
+    const step = 10 * 60 * 1000;
+    const time = new Date(Math.round(Date.now() / step) * step);
+    return time.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Copy the report in the Meldung format to the clipboard; empty fields stay open, Zeit defaults to now
+async function copyReport() {
+    let txtContent = '';
     try {
-        const rows = document.querySelectorAll('#input-rows tr');
-        const resultCoords = document.getElementById('result-coords').textContent;
-        const confidenceLevel = document.getElementById('confidence-value').textContent;
+        const sources = Array.from(document.querySelectorAll('#input-rows tr')).map((row, index) => ({
+            name: rowField(row, 'name').value.trim() || `RX ${index + 1}`,
+            position: rowField(row, 'position').value.trim(),
+            bearing: rowField(row, 'bearing').value.trim()
+        }));
 
-        let txtContent = "SIGINT TRIANGULATION REPORT\n";
-        txtContent += "===========================\n\n";
-        txtContent += `Date: ${new Date().toLocaleString()}\n\n`;
-
-        txtContent += "INPUT DATA:\n";
-        txtContent += "-----------\n";
-
-        rows.forEach((row, index) => {
-            const name = rowField(row, 'name').value.trim();
-            txtContent += `\n${name || `Signal Source ${index + 1}`}:\n`;
-            txtContent += `Location: ${rowField(row, 'position').value}\n`;
-            const d = readRow(row);
-            txtContent += `Bearing: ${isValidBearing(d.bearing) ? formatBearing(d) : rowField(row, 'bearing').value}\n`;
-            txtContent += `Frequency: ${rowField(row, 'freq').value} MHz\n`;
-            txtContent += `Signal Strength: ${rowField(row, 'signal').value} dB\n`;
+        txtContent = `Meldung: ${new Date().toLocaleDateString('de-CH')}\n`;
+        txtContent += `Stao: ${sources.map(s => `${s.name} ${s.position}`.trim()).join(' / ')}\n`;
+        txtContent += `Zeit: ${document.getElementById('report-time').value.trim() || currentTimeRounded()}\n`;
+        txtContent += `Sign: ${document.getElementById('report-sign').value.trim()}\n`;
+        txtContent += `Freq: ${document.getElementById('report-freq').value.trim()}\n`;
+        sources.forEach(s => {
+            txtContent += `AZ ${s.name}: ${s.bearing ? `${s.bearing}°` : ''}\n`;
         });
+        txtContent += `Interp:`;
 
-        txtContent += "\nRESULTS:\n";
-        txtContent += "--------\n";
-        txtContent += `${resultCoords}\n`;
-        txtContent += `Confidence Level: ${confidenceLevel}\n`;
 
-        if (pois.length > 0) {
-            txtContent += "\nPOINTS OF INTEREST:\n";
-            txtContent += "-------------------\n";
-            pois.forEach(poi => {
-                txtContent += `\n${poi.name}\n`;
-                txtContent += `Location: ${formatCoords(poi.position)}\n`;
-                if (targetLocation) {
-                    txtContent += `Distance to Target: ${formatDistance(calculateDistance(poi.position, targetLocation))}`;
-                    txtContent += ` (bearing from target ${calculateBearing(targetLocation, poi.position).toFixed(1)}°)\n`;
-                }
-            });
-        }
+        await navigator.clipboard.writeText(txtContent);
 
-        // Create and trigger download
-        const blob = new Blob([txtContent], {
-            type: 'text/plain'
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `triangulation-report-${new Date().toISOString().slice(0,10)}.txt`;
-        link.href = url;
-        link.click();
-
-        // Cleanup
-        URL.revokeObjectURL(url);
+        const button = document.getElementById('copy-report');
+        button.textContent = ' Copied! ';
+        setTimeout(() => { button.textContent = ' Copy Report '; }, 1500);
     } catch (error) {
-        console.error('Error exporting data:', error);
-        alert('Failed to export data. Please try again.');
+        // Clipboard access can be blocked (e.g. over file://), so let the user copy it by hand
+        console.error('Error copying report:', error);
+        prompt('Could not copy automatically. Copy the report from here:', txtContent);
     }
 }
 
@@ -1111,10 +1088,11 @@ function buildState() {
         rows: Array.from(document.querySelectorAll('#input-rows tr')).map(row => ({
             name: rowField(row, 'name').value,
             position: rowField(row, 'position').value,
-            bearing: rowField(row, 'bearing').value,
-            freq: rowField(row, 'freq').value,
-            signal: rowField(row, 'signal').value
+            bearing: rowField(row, 'bearing').value
         })),
+        reportTime: document.getElementById('report-time').value,
+        reportSign: document.getElementById('report-sign').value,
+        reportFreq: document.getElementById('report-freq').value,
         triangulated: targetLocation !== null,
         pois: pois.map(poi => ({ name: poi.name, position: poi.position })),
         measurements: measurements.filter(points => points.length >= 2),
@@ -1147,6 +1125,9 @@ function applyState(state) {
             activeBaseLayer = state.baseLayer;
         }
 
+        document.getElementById('report-time').value = state.reportTime || '';
+        document.getElementById('report-sign').value = state.reportSign || '';
+        document.getElementById('report-freq').value = state.reportFreq || '';
         (state.rows && state.rows.length ? state.rows : [{}]).forEach(values => addRow(values));
         (state.pois || []).forEach(poi => addPoi(poi.position, poi.name));
 
@@ -1260,11 +1241,14 @@ document.getElementById('input-rows').addEventListener('input', () => {
     drawVectors();
     saveState();
 });
+document.getElementById('report-time').addEventListener('input', saveState);
+document.getElementById('report-sign').addEventListener('input', saveState);
+document.getElementById('report-freq').addEventListener('input', saveState);
 map.on('moveend', saveState);
 document.getElementById('process-data').addEventListener('click', processData);
 document.getElementById('reset-data').addEventListener('click', resetData);
 document.getElementById('export-image').addEventListener('click', exportMapImage);
-document.getElementById('export-txt').addEventListener('click', exportDataAsTxt);
+document.getElementById('copy-report').addEventListener('click', copyReport);
 document.getElementById('export-preset').addEventListener('click', exportPreset);
 document.getElementById('import-preset').addEventListener('click', () => document.getElementById('preset-file').click());
 document.getElementById('preset-file').addEventListener('change', e => {
