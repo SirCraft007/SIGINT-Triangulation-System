@@ -1077,10 +1077,8 @@ document.addEventListener('keydown', e => {
 // Persist everything to localStorage so it survives a page refresh
 const STORAGE_KEY = 'sigint-triangulation-state';
 
-function saveState() {
-    if (restoring) return;
-
-    const state = {
+function buildState() {
+    return {
         rows: Array.from(document.querySelectorAll('#input-rows tr')).map(row => ({
             name: rowField(row, 'name').value,
             position: rowField(row, 'position').value,
@@ -1097,25 +1095,20 @@ function saveState() {
             zoom: map.getZoom()
         }
     };
+}
+
+function saveState() {
+    if (restoring) return;
 
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildState()));
     } catch (error) {
         console.warn('Could not save state:', error);
     }
 }
 
-// Restore saved state; returns false if there was nothing to restore
-function loadState() {
-    let state;
-    try {
-        state = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    } catch (error) {
-        console.warn('Could not load saved state:', error);
-        return false;
-    }
-    if (!state) return false;
-
+// Rebuild rows, POIs, measurements and the target from a state object
+function applyState(state) {
     restoring = true;
     try {
         const savedBase = baseLayers[state.baseLayer];
@@ -1153,7 +1146,67 @@ function loadState() {
 
     renderPoiList();
     saveState();
+}
+
+// Restore saved state; returns false if there was nothing to restore
+function loadState() {
+    let state;
+    try {
+        state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    } catch (error) {
+        console.warn('Could not load saved state:', error);
+        return false;
+    }
+    if (!state) return false;
+
+    applyState(state);
     return true;
+}
+
+// Presets are the saved state as a JSON file, for sharing setups between people
+const PRESET_FORMAT = 'sigint-triangulation-preset';
+
+function exportPreset() {
+    const preset = { format: PRESET_FORMAT, version: 1, ...buildState() };
+    const blob = new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `triangulation-preset-${new Date().toISOString().slice(0,10)}.json`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
+async function importPreset(file) {
+    let preset;
+    try {
+        preset = JSON.parse(await file.text());
+    } catch (error) {
+        alert('Could not read preset: the file is not valid JSON.');
+        return;
+    }
+    if (!preset || preset.format !== PRESET_FORMAT) {
+        alert('This file is not a SIGINT triangulation preset.');
+        return;
+    }
+    if (!confirm('Importing replaces the current signal sources, POIs and measurements. Continue?')) return;
+
+    // Clear the current session without saving the intermediate empty state
+    setMapTool(null);
+    restoring = true;
+    try {
+        document.getElementById('input-rows').innerHTML = '';
+        rowCount = 0;
+        clearTarget();
+        poiLayer.clearLayers();
+        pois = [];
+        poiCount = 0;
+        clearMeasurements();
+    } finally {
+        restoring = false;
+    }
+
+    applyState(preset);
 }
 
 // Ask for the map API key once and remember it; an empty entry removes it
@@ -1183,6 +1236,13 @@ document.getElementById('process-data').addEventListener('click', processData);
 document.getElementById('reset-data').addEventListener('click', resetData);
 document.getElementById('export-image').addEventListener('click', exportMapImage);
 document.getElementById('export-txt').addEventListener('click', exportDataAsTxt);
+document.getElementById('export-preset').addEventListener('click', exportPreset);
+document.getElementById('import-preset').addEventListener('click', () => document.getElementById('preset-file').click());
+document.getElementById('preset-file').addEventListener('change', e => {
+    const file = e.target.files[0];
+    e.target.value = ''; // allow importing the same file again
+    if (file) importPreset(file);
+});
 document.getElementById('poi-mode').addEventListener('click', () => setMapTool('poi'));
 document.getElementById('measure-mode').addEventListener('click', () => setMapTool('measure'));
 document.getElementById('clear-measure').addEventListener('click', clearMeasurements);
