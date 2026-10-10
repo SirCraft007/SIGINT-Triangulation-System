@@ -23,3 +23,7 @@
 hs_err_pid*
 replay_pid*
 /.idea
+
+# Local secrets and generated config
+.env
+config.js

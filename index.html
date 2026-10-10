@@ -28,8 +28,9 @@
         <table>
           <thead>
             <tr>
+              <th>Name</th>
               <th>Signal Source Location</th>
-              <th>Bearing (°)</th>
+              <th>Bearing (° or range)</th>
               <th>Frequency (MHz)</th>
               <th>Signal Strength (dB)</th>
               <th>Actions</th>
@@ -40,6 +41,12 @@
           </tbody>
         </table>
       </form>
+      <div class="map-tools">
+        <button type="button" id="poi-mode" class="secondary"> Add POI </button>
+        <button type="button" id="measure-mode" class="secondary"> Measure Distance </button>
+        <button type="button" id="clear-measure" class="secondary"> Clear Measurements </button>
+        <span id="map-tool-hint"></span>
+      </div>
       <div id="map-container">
         <div id="map"></div>
       </div>
@@ -49,9 +56,30 @@
         <div id="confidence-level" style="display: none;"> Confidence Level: <span id="confidence-value">High</span>
         </div>
       </div>
+      <div id="poi-panel">
+        <h2>Points of Interest</h2>
+        <div class="poi-form">
+          <input type="text" id="poi-name" placeholder="Name">
+          <input type="text" id="poi-coords" placeholder="Lat,Lng (e.g. 44.4268,26.1025)">
+          <button type="button" id="add-poi"> Add POI </button>
+        </div>
+        <table id="poi-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Coordinates</th>
+              <th>Distance to Target</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="poi-rows"></tbody>
+        </table>
+        <p id="poi-empty">No points of interest. Use "Add POI" and click the map, or enter coordinates above.</p>
+      </div>
     </div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+    <script src="config.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

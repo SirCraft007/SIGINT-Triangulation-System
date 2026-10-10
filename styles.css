@@ -265,10 +265,58 @@ button.secondary {
 	display: none;
 }
 
-/* Enhanced target marker */
+/* Map markers: receivers (antenna) and target (reticle) */
+.rx-marker,
 .custom-target-marker {
-	width: 24px;
-	height: 24px;
+	position: relative;
+	overflow: visible;
+}
+
+.rx-marker svg,
+.custom-target-marker svg {
+	display: block;
+}
+
+.map-label {
+	position: absolute;
+	padding: 1px 6px;
+	background: rgba(15, 17, 23, 0.85);
+	border: 1px solid currentColor;
+	border-radius: 4px;
+	font-family: 'Roboto Mono', monospace;
+	font-size: 12px;
+	font-weight: 600;
+	line-height: 16px;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Matches drawRxOnCanvas in the image export */
+.rx-marker .map-label {
+	left: 28px;
+	top: 6px;
+}
+
+.target-label {
+	left: 50%;
+	bottom: calc(100% - 2px);
+	transform: translateX(-50%);
+	color: #ff3b3b;
+}
+
+.target-pulse {
+	animation: target-pulse 2s ease-in-out infinite;
+}
+
+@keyframes target-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+	}
+
+	50% {
+		transform: scale(1.12);
+	}
 }
 
 /* Animations */
@@ -310,4 +358,121 @@ button.secondary {
 	padding: 0.25rem 0.75rem;
 	border-radius: 4px;
 	background: var(--bg-primary);
+}
+/* Map tools (POI / measurement) */
+.map-tools {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+	flex-wrap: wrap;
+	padding: 1rem;
+	background: var(--bg-tertiary);
+	border-radius: 12px;
+	border: 1px solid var(--border-color);
+}
+
+.map-tools button.active {
+	background: var(--accent-primary);
+	border-color: var(--accent-primary);
+}
+
+#map-tool-hint {
+	font-family: 'Roboto Mono', monospace;
+	font-size: 0.875rem;
+	color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+	.map-tools {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5rem;
+	}
+}
+
+#map-container.tool-active .leaflet-container {
+	cursor: crosshair;
+}
+
+.poi-pin {
+	width: 14px;
+	height: 14px;
+	box-sizing: border-box;
+	background: #be4bdb;
+	border: 2px solid var(--text-primary);
+	border-radius: 50%;
+	box-shadow: 0 0 6px rgba(190, 75, 219, 0.8);
+}
+
+.leaflet-tooltip.measure-label {
+	background: var(--bg-secondary);
+	color: #fcc419;
+	border: 1px solid #fcc419;
+	font-family: 'Roboto Mono', monospace;
+	font-size: 0.75rem;
+	box-shadow: none;
+}
+
+.leaflet-tooltip.measure-label::before {
+	display: none;
+}
+
+/* Points of interest panel */
+#poi-panel {
+	background: var(--bg-tertiary);
+	padding: 1.5rem;
+	border-radius: 12px;
+	border: 1px solid var(--border-color);
+	margin-top: 1.5rem;
+	box-shadow: 0 4px 6px var(--shadow-color);
+}
+
+#poi-panel h2 {
+	margin-top: 0;
+}
+
+.poi-form {
+	display: flex;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+
+.poi-form input[type="text"] {
+	flex: 1;
+	width: auto;
+	margin: 0;
+}
+
+@media (max-width: 768px) {
+	.poi-form {
+		flex-direction: column;
+	}
+}
+
+#poi-table {
+	margin-bottom: 0;
+	box-shadow: none;
+}
+
+#poi-table td button {
+	margin: 0 auto;
+}
+
+#poi-empty {
+	color: var(--text-secondary);
+	margin: 0;
+}
+
+.poi-link {
+	color: var(--accent-primary);
+	text-decoration: none;
+	font-weight: 600;
+}
+
+.poi-link:hover {
+	text-decoration: underline;
+}
+
+.mono {
+	font-family: 'Roboto Mono', monospace;
 }
