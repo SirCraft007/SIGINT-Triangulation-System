@@ -44,12 +44,13 @@ function swisstopoLayer(layerId, maxNativeZoom) {
 }
 
 const baseLayers = {
-    'CARTO': darkMap,
+    
     'swisstopo Map': swisstopoLayer('ch.swisstopo.pixelkarte-farbe', 18),
     'swisstopo Map (grey)': swisstopoLayer('ch.swisstopo.pixelkarte-grau', 18),
-    'swisstopo Aerial': swisstopoLayer('ch.swisstopo.swissimage', 19)
+    'swisstopo Aerial': swisstopoLayer('ch.swisstopo.swissimage', 19),
+    'CARTO': darkMap
 };
-let activeBaseLayer = 'CARTO';
+let activeBaseLayer = 'swisstopo Map';
 
 L.control.layers(baseLayers, null, { position: 'topright' }).addTo(map);
 map.on('baselayerchange', e => {
@@ -248,13 +249,17 @@ function drawVectors() {
         const hasBearing = isValidBearing(d.bearing);
 
         if (hasBearing) {
-            const lineLength = 50; // km; kept short for cleaner visualization
             if (d.bearingWidth > 0) {
-                // Wedge covering the bearing range
+                // Wedge covering the bearing range, bounded by the two edge great circles
                 const steps = Math.max(2, Math.ceil(d.bearingWidth / 2));
-                const arc = Array.from({ length: steps + 1 }, (_, i) =>
-                    destinationPoint(d.position, d.bearingFrom + (d.bearingWidth * i) / steps, lineLength));
-                L.polygon([d.position, ...arc], {
+                const farArc = Array.from({ length: steps + 1 }, (_, i) =>
+                    destinationPoint(d.position, d.bearingFrom + (d.bearingWidth * i) / steps, MAX_LINE_LENGTH));
+                const outline = [
+                    ...greatCirclePath(d.position, d.bearingFrom, MAX_LINE_LENGTH),
+                    ...farArc,
+                    ...greatCirclePath(d.position, d.bearingFrom + d.bearingWidth, MAX_LINE_LENGTH).reverse()
+                ];
+                L.polygon(unwrapLongitudes(outline), {
                     color: lineColor,
                     weight: 1,
                     opacity: 0.6,
@@ -262,8 +267,7 @@ function drawVectors() {
                     fillOpacity: 0.15
                 }).addTo(vectorLayer);
             }
-            const endPoint = destinationPoint(d.position, d.bearing, lineLength);
-            L.polyline([d.position, endPoint], {
+            L.polyline(greatCirclePath(d.position, d.bearing, MAX_LINE_LENGTH), {
                 color: lineColor,
                 weight: 2,
                 opacity: 0.8,
@@ -353,6 +357,31 @@ function calculateIntersection(data, { silent = false } = {}) {
         // If no intersection, just fit to measurement points
         map.fitBounds(bounds.pad(0.3));
     }
+}
+
+// Bearing lines run along the great circle almost to the antipode (half the
+// Earth's circumference, ~20015 km), where all bearings from a point meet again
+const MAX_LINE_LENGTH = 20000; // km
+
+// Points along the great circle from start on the given bearing, with
+// longitudes unwrapped so Leaflet draws it as one continuous line
+function greatCirclePath(start, bearing, distance, stepKm = 100) {
+    const steps = Math.max(1, Math.ceil(distance / stepKm));
+    const points = Array.from({ length: steps + 1 }, (_, i) =>
+        destinationPoint(start, bearing, (distance * i) / steps));
+    return unwrapLongitudes(points);
+}
+
+// Shift each longitude by multiples of 360° so consecutive points never jump across the antimeridian
+function unwrapLongitudes(points) {
+    let prev = null;
+    return points.map(([lat, lng]) => {
+        if (prev !== null) {
+            lng += Math.round((prev - lng) / 360) * 360;
+        }
+        prev = lng;
+        return [lat, lng];
+    });
 }
 
 // Calculate the destination point given start point, bearing and distance
