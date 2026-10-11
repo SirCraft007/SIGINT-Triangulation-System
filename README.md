@@ -44,11 +44,11 @@ The **SIGINT Triangulation System** is a web-based application designed to simul
 
 ## Usage
 
-1. **Add Signal Sources**: Use the "Add Signal Source" button to add rows for signal data.
+1. **Add Signal Sources**: Use the "+ Add Source" button to add rows for signal data.
 2. **Enter Parameters**:
    - Signal Source Location: Latitude and Longitude (e.g., `44.4268,26.1025`).
    - Bearing: Direction in degrees (0–360°).
-3. **Triangulate Position**: Click "Triangulate Position" to calculate the target location.
+3. **Triangulate Position**: Click "Triangulate" to calculate the target location.
 4. **View Results**: See the triangulated coordinates and confidence level on the map and in the results section.
 5. **Export Data**: Use "Copy Map" to copy the map as an image, and "Copy Report" to copy the report text (Meldung, Stao, Zeit, Sign, Freq, AZ).
 

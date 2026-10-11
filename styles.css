@@ -61,38 +61,70 @@ h2 {
 /* Modernized control panel */
 .control-panel {
 	display: flex;
-	gap: 1rem;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.75rem;
 	margin-bottom: 1.5rem;
-	padding: 1rem;
+	padding: 0.75rem;
 	background: var(--bg-tertiary);
 	border-radius: 12px;
 	border: 1px solid var(--border-color);
-	flex-wrap: wrap;
-	justify-content: space-between;
+}
+
+/* Related buttons sit together, groups are split by a divider */
+.control-group {
+	display: flex;
+	gap: 0.5rem;
+}
+
+.control-group + .control-group {
+	padding-left: 0.75rem;
+	border-left: 1px solid var(--border-color);
+}
+
+.control-group-end {
+	margin-left: auto;
+}
+
+.control-panel button {
+	padding: 0.6rem 1rem;
+	white-space: nowrap;
+	box-shadow: none;
+}
+
+.control-panel button.secondary {
+	background: var(--bg-secondary);
+}
+
+.control-panel button.secondary:hover {
+	background: var(--bg-primary);
+	border-color: var(--accent-primary);
+}
+
+.control-panel button.danger-hover:hover {
+	border-color: var(--danger);
+	color: var(--danger);
 }
 
 @media (max-width: 768px) {
 	.control-panel {
 		flex-direction: column;
+		align-items: stretch;
 		gap: 0.5rem;
 	}
 
-	.control-panel button {
-		width: 100%;
+	.control-group + .control-group {
+		padding-left: 0;
+		border-left: none;
 	}
-}
 
-button#copy-map,
-button#copy-report {
-	background: var(--bg-secondary);
-	border: 1px solid var(--border-color);
-	color: var(--text-primary);
-}
+	.control-group-end {
+		margin-left: 0;
+	}
 
-button#copy-map:hover,
-button#copy-report:hover {
-	background: var(--bg-tertiary);
-	border-color: var(--accent-primary);
+	.control-group button {
+		flex: 1;
+	}
 }
 
 /* Enhanced table styling */
@@ -154,6 +186,18 @@ input[type="number"] {
 
 table td:has(input) {
 	padding: 0.5rem;
+}
+
+input[type="checkbox"] {
+	width: 1.1rem;
+	height: 1.1rem;
+	accent-color: var(--accent-primary);
+	cursor: pointer;
+}
+
+/* Disabled receivers stay in the table but are left out of the map, fix and report */
+tr.row-disabled td:not(:first-child) {
+	opacity: 0.4;
 }
 
 input:focus {

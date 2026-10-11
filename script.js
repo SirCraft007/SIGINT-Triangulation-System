@@ -138,6 +138,7 @@ function addRow(values = {}) {
     rowCount++;
     const row = document.createElement('tr');
     row.innerHTML = `
+        <td><input type="checkbox" name="enabled-${rowCount}" title="Include this receiver" checked></td>
         <td><input type="text" name="name-${rowCount}" placeholder="RX ${rowCount} (optional)"></td>
         <td><input type="text" name="position-${rowCount}" placeholder="Lat,Lng" required></td>
         <td><input type="text" name="bearing-${rowCount}" inputmode="decimal" placeholder="45 or 40-55" required></td>
@@ -146,14 +147,22 @@ function addRow(values = {}) {
     ['name', 'position', 'bearing'].forEach(field => {
         if (values[field] !== undefined) rowField(row, field).value = values[field];
     });
+    const enabled = rowField(row, 'enabled');
+    enabled.checked = values.enabled !== false;
+    row.classList.toggle('row-disabled', !enabled.checked);
+    enabled.addEventListener('change', () => row.classList.toggle('row-disabled', !enabled.checked));
     tableBody.appendChild(row);
     drawVectors();
     saveState();
 }
 
-// Get a row's input by field (name, position, bearing)
+// Get a row's input by field (enabled, name, position, bearing)
 function rowField(row, field) {
     return row.querySelector(`input[name^="${field}-"]`);
+}
+
+function isRowEnabled(row) {
+    return rowField(row, 'enabled').checked;
 }
 
 // Remove a specific row
@@ -169,15 +178,15 @@ function processData() {
     const loadingSpinner = document.getElementById('process-loading');
     loadingSpinner.style.display = 'inline-block';
 
-    const rows = document.querySelectorAll('#input-rows tr');
+    const rows = Array.from(document.querySelectorAll('#input-rows tr')).filter(isRowEnabled);
     if (rows.length < 2) {
-        alert('At least two signal sources are required for triangulation.');
+        alert('At least two enabled signal sources are required for triangulation.');
         loadingSpinner.style.display = 'none';
         return;
     }
 
     try {
-        const data = Array.from(rows).map(row => {
+        const data = rows.map(row => {
             const d = readRow(row);
             if (!d.position) {
                 throw new Error('Invalid coordinates format. Use Lat,Lng format with valid ranges.');
@@ -238,6 +247,7 @@ function drawVectors() {
     const lines = [];
 
     rows.forEach((row, index) => {
+        if (!isRowEnabled(row)) return;
         const d = readRow(row);
         if (!d.position) return;
 
@@ -774,11 +784,13 @@ function currentTimeRounded() {
 async function copyReport() {
     let txtContent = '';
     try {
+        // Disabled receivers are left out; default names keep their table numbering
         const sources = Array.from(document.querySelectorAll('#input-rows tr')).map((row, index) => ({
+            enabled: isRowEnabled(row),
             name: rowField(row, 'name').value.trim() || `RX ${index + 1}`,
             position: rowField(row, 'position').value.trim(),
             bearing: rowField(row, 'bearing').value.trim()
-        }));
+        })).filter(s => s.enabled);
 
         txtContent = `Meldung: ${new Date().toLocaleDateString('de-CH')}\n`;
         txtContent += `Stao: ${sources.map(s => `${s.name} ${s.position}`.trim()).join(' / ')}\n`;
@@ -1095,6 +1107,7 @@ const STORAGE_KEY = 'sigint-triangulation-state';
 function buildState() {
     return {
         rows: Array.from(document.querySelectorAll('#input-rows tr')).map(row => ({
+            enabled: isRowEnabled(row),
             name: rowField(row, 'name').value,
             position: rowField(row, 'position').value,
             bearing: rowField(row, 'bearing').value
@@ -1148,8 +1161,8 @@ function applyState(state) {
 
         // Re-run the triangulation from the saved rows
         if (state.triangulated) {
-            const rows = document.querySelectorAll('#input-rows tr');
-            const data = Array.from(rows).map(readRow);
+            const rows = Array.from(document.querySelectorAll('#input-rows tr')).filter(isRowEnabled);
+            const data = rows.map(readRow);
             if (data.length >= 2 && data.every(d => d.position && isValidBearing(d.bearing))) {
                 calculateIntersection(data, { silent: true });
                 if (targetLocation) document.getElementById('confidence-level').style.display = 'block';

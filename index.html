@@ -17,16 +17,24 @@
     <div class="container">
       <h1>SIGINT Triangulation System</h1>
       <div class="control-panel">
-        <button type="button" id="add-row" class="secondary"> + Add Signal Source </button>
-        <button type="button" id="process-data">
-          <span class="loading" id="process-loading"></span> Triangulate Position </button>
-        <button type="button" id="reset-data" class="secondary"> Clear Data </button>
-        <button type="button" id="copy-map" class="secondary"> Copy Map </button>
-        <button type="button" id="copy-report" class="secondary"> Copy Report </button>
-        <button type="button" id="export-preset" class="secondary"> Export Preset </button>
-        <button type="button" id="import-preset" class="secondary"> Import Preset </button>
-        <input type="file" id="preset-file" accept=".json,application/json" hidden>
-        <button type="button" id="set-api-key" class="secondary"> API Key </button>
+        <div class="control-group">
+          <button type="button" id="process-data">
+            <span class="loading" id="process-loading"></span> Triangulate </button>
+          <button type="button" id="add-row" class="secondary"> + Add Source </button>
+          <button type="button" id="reset-data" class="secondary danger-hover"> Clear </button>
+        </div>
+        <div class="control-group">
+          <button type="button" id="copy-map" class="secondary"> Copy Map </button>
+          <button type="button" id="copy-report" class="secondary"> Copy Report </button>
+        </div>
+        <div class="control-group">
+          <button type="button" id="import-preset" class="secondary"> Import Preset </button>
+          <button type="button" id="export-preset" class="secondary"> Export Preset </button>
+          <input type="file" id="preset-file" accept=".json,application/json" hidden>
+        </div>
+        <div class="control-group control-group-end">
+          <button type="button" id="set-api-key" class="secondary"> API Key </button>
+        </div>
       </div>
       <form id="input-form">
         <div class="report-fields">
@@ -37,6 +45,7 @@
         <table>
           <thead>
             <tr>
+              <th>On</th>
               <th>Name</th>
               <th>Signal Source Location</th>
               <th>Bearing (° or range)</th>
