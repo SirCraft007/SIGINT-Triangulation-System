@@ -800,7 +800,7 @@ async function copyReport() {
         sources.forEach(s => {
             txtContent += `AZ ${s.name}: ${s.bearing ? `${s.bearing}°` : ''}\n`;
         });
-        txtContent += `Pos: ${targetLocation ? formatCoords(targetLocation) : '—'}\n`;
+        txtContent += `Triangulation: ${targetLocation ? formatCoords(targetLocation) : '—'}\n`;
         txtContent += `Interp:`;
     } catch (error) {
         console.error('Error building report:', error);
